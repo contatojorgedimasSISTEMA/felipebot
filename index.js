@@ -16,8 +16,8 @@ Use expressoes regionais naturalmente: "uai", "so", "trem", "oce", "ce", "miseri
 
 REGRAS:
 1. Se a mensagem for spam, propaganda, link suspeito ou sem sentido responda apenas: "SPAM_IGNORAR"
-2. Se a pessoa e FA (elogio, declaracao de amor a musica, parabens, comentario positivo) responda com carinho, agradeca em nome da dupla, use expressoes sertanejas, pergunte de onde ela e.
-3. Se a pessoa quer CONTRATAR um show (evento, festa, casamento, aniversario, rodeio, bar) informe que o contato para contratacoes e a Panka Hits Producoes: WhatsApp (12) 99713-7294 ou e-mail contatojdej@gmail.com. Diga que a equipe responde rapidinho e que vai ser uma festa e tanto.
+2. Se a pessoa e FA responda com carinho, agradeca em nome da dupla, use expressoes sertanejas, pergunte de onde ela e.
+3. Se a pessoa quer CONTRATAR um show informe que o contato e a Panka Hits Producoes: WhatsApp (12) 99713-7294 ou e-mail contatojdej@gmail.com.
 4. Se a pessoa quer PEDIR MUSICA ou mandar um salve responda animado, diga que com certeza vao tocar, manda um abraco da dupla.
 5. Qualquer outra mensagem geral responda de forma simpatica e sertaneja.
 
@@ -44,12 +44,14 @@ async function gerarResposta(userId, mensagem) {
 async function enviarMensagem(recipientId, texto) {
   try {
     await axios.post('https://graph.facebook.com/v19.0/me/messages', { recipient: { id: recipientId }, message: { text: texto }, messaging_type: 'RESPONSE' }, { params: { access_token: PAGE_ACCESS_TOKEN } });
+    console.log('[Felipe] DM enviada para ' + recipientId);
   } catch (err) { console.error('[Felipe] Erro DM:', err.response?.data || err.message); }
 }
 
 async function responderComentario(commentId, texto) {
   try {
     await axios.post(`https://graph.facebook.com/v19.0/${commentId}/replies`, { message: texto }, { params: { access_token: PAGE_ACCESS_TOKEN } });
+    console.log('[Felipe] Comentario respondido: ' + commentId);
   } catch (err) { console.error('[Felipe] Erro comentario:', err.response?.data || err.message); }
 }
 
@@ -66,16 +68,23 @@ app.post('/webhook', async (req, res) => {
   for (const entry of body.entry || []) {
     for (const ev of entry.messaging || []) {
       if (!ev.message || ev.message.is_echo || !ev.message.text) continue;
+      console.log('[Felipe] DM de ' + ev.sender.id + ': ' + ev.message.text);
       try { const r = await gerarResposta(ev.sender.id, ev.message.text); if (r) await enviarMensagem(ev.sender.id, r); } catch (e) { console.error(e.message); }
     }
     for (const ch of entry.changes || []) {
       if (ch.field !== 'comments' || !ch.value || ch.value.verb !== 'add') continue;
       const { id: cid, text: txt, from } = ch.value;
       if (!txt || !from?.id) continue;
+      console.log('[Felipe] Comentario de ' + from.id + ': ' + txt);
       try { const r = await gerarResposta(from.id, txt); if (r) await responderComentario(cid, r); } catch (e) { console.error(e.message); }
     }
   }
 });
 
 app.get('/', (req, res) => res.json({ status: 'Felipe online', dupla: 'Jorge Dimas e Joao' }));
+
+app.get('/privacidade', (req, res) => {
+  res.send('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Politica de Privacidade - Jorge Dimas e Joao</title></head><body><h1>Politica de Privacidade</h1><p>Este aplicativo e utilizado pela equipe da dupla sertaneja Jorge Dimas e Joao para gerenciar mensagens no Instagram e WhatsApp.</p><h2>Dados coletados</h2><p>Coletamos apenas mensagens enviadas voluntariamente pelos usuarios, com o objetivo de responder duvidas sobre contratacao de shows.</p><h2>Uso dos dados</h2><p>Os dados sao utilizados exclusivamente para responder as mensagens. Nao compartilhamos informacoes com terceiros.</p><h2>Contato</h2><p>contatojdej@gmail.com | Panka Hits Producoes: (12) 99713-7294</p></body></html>');
+});
+
 app.listen(process.env.PORT || 3000, () => console.log('[Felipe] Bot online'));
